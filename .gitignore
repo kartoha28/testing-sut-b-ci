@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.env
+.coverage
+htmlcov/
+.idea/
+tools/
+temp/
+jmeter.log
+reports/
+performance/*/reports/
+*.jtl

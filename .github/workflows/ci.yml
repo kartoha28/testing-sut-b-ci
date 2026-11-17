@@ -1,0 +1,138 @@
+name: CI Pipeline (SUT B - Variant 08)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install build dependencies and build package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          pip install -e ".[test]"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-packages
+          path: dist/
+
+  unit-tests:
+    name: Unit Tests
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run unit tests
+        run: |
+          mkdir -p reports
+          pytest tests/test_unit.py -v \
+            --junitxml=reports/unit-junit.xml \
+            --html=reports/unit-report.html --self-contained-html
+
+      - name: Publish unit test summary
+        if: always()
+        shell: python {0}
+        run: |
+          import os, xml.etree.ElementTree as ET
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          xml_path = "reports/unit-junit.xml"
+          if summary_file and os.path.exists(xml_path):
+              suite = ET.parse(xml_path).find("testsuite")
+              if suite is not None:
+                  tests = suite.attrib.get("tests", "0")
+                  failures = suite.attrib.get("failures", "0")
+                  errors = suite.attrib.get("errors", "0")
+                  time_s = suite.attrib.get("time", "0")
+                  with open(summary_file, "a", encoding="utf-8") as f:
+                      f.write(f"### Unit Tests Summary\n")
+                      f.write(f"- **Total**: {tests} | **Failures**: {failures} | **Errors**: {errors} | **Time**: {time_s}s\n")
+
+      - name: Upload unit test report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: reports/
+
+  integration-and-api-tests:
+    name: Integration & API Tests
+    needs: unit-tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run integration and API tests
+        run: |
+          mkdir -p reports
+          pytest tests/test_integration.py tests/test_api.py tests/test_environment.py -v \
+            --junitxml=reports/integration-api-junit.xml \
+            --html=reports/integration-api-report.html --self-contained-html
+
+      - name: Publish integration & API test summary
+        if: always()
+        shell: python {0}
+        run: |
+          import os, xml.etree.ElementTree as ET
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          xml_path = "reports/integration-api-junit.xml"
+          if summary_file and os.path.exists(xml_path):
+              suite = ET.parse(xml_path).find("testsuite")
+              if suite is not None:
+                  tests = suite.attrib.get("tests", "0")
+                  failures = suite.attrib.get("failures", "0")
+                  errors = suite.attrib.get("errors", "0")
+                  time_s = suite.attrib.get("time", "0")
+                  with open(summary_file, "a", encoding="utf-8") as f:
+                      f.write(f"### Integration & API Tests Summary\n")
+                      f.write(f"- **Total**: {tests} | **Failures**: {failures} | **Errors**: {errors} | **Time**: {time_s}s\n")
+
+      - name: Upload integration & API test report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-api-test-report
+          path: reports/
