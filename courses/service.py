@@ -26,7 +26,7 @@ class EnrollmentService:
         integer(price, 100, 10000000)
         boolean(regular)
         boolean(coupon_valid)
-        discount = price * ((0 if regular else 0) + (10 if price >= 200000 else 0)) // 100
+        discount = price * ((5 if regular else 0) + (10 if price >= 200000 else 0)) // 100
         return price - discount
 
     def is_eligible(self, age, entry_score, level):
